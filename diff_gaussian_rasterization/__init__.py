@@ -12,7 +12,6 @@
 from typing import NamedTuple
 import torch.nn as nn
 import torch
-from . import _C
 
 def cpu_deep_copy_tuple(input_tuple):
     copied_tensors = [item.cpu().clone() if isinstance(item, torch.Tensor) else item for item in input_tuple]
@@ -80,6 +79,7 @@ class _RasterizeGaussians(torch.autograd.Function):
         )
 
         # Invoke C++/CUDA rasterizer
+        from diff_gaussian_rasterization import _C
         if raster_settings.debug:
             cpu_args = cpu_deep_copy_tuple(args) # Copy them before they can be corrupted
             try:
@@ -129,6 +129,7 @@ class _RasterizeGaussians(torch.autograd.Function):
                 raster_settings.debug)
 
         # Compute gradients for relevant tensors by invoking backward method
+        from diff_gaussian_rasterization import _C
         if raster_settings.debug:
             cpu_args = cpu_deep_copy_tuple(args) # Copy them before they can be corrupted
             try:
@@ -159,6 +160,8 @@ class GaussianRasterizationSettings(NamedTuple):
     image_width: int 
     tanfovx : float
     tanfovy : float
+    kernel_size : int
+    subpixel_offset : float
     bg : torch.Tensor
     scale_modifier : float
     viewmatrix : torch.Tensor
@@ -177,6 +180,7 @@ class GaussianRasterizer(nn.Module):
         # Mark visible points (based on frustum culling for camera) with a boolean 
         with torch.no_grad():
             raster_settings = self.raster_settings
+            from . import _C
             visible = _C.mark_visible(
                 positions,
                 raster_settings.viewmatrix,
